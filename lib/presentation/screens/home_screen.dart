@@ -78,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final user = snapshot.data!;
           return CustomDrawer(
             userId: user['_id'],
-            fullname: user['fullName'] ?? "User",
+            fullname: user['fullname'] ?? "User",
             username: user['username'] ?? "username",
             profileImg: user['profileImg'] ?? "",
             followersCount: (user['followers'] as List?)?.length ?? 0,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../data/models/post_model.dart';
-import '../../data/services/post_service.dart';
-import '../../data/services/user_service.dart';
+import 'package:provider/provider.dart';
+import '../../providers/user_provider.dart';
+import '../../providers/post_provider.dart';
 import '../widgets/post_card.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -13,237 +13,246 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final PostService _postService = PostService();
-  final UserService _userService = UserService();
-
-  late Future<Map<String, dynamic>> _userProfile;
-  late Future<List<Post>> _userPosts;
-
   @override
   void initState() {
     super.initState();
-    _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshData();
+    });
   }
 
-  void _loadData() {
-    setState(() {
-      _userProfile = _userService.getUserProfile(widget.username);
-      _userPosts = _postService.getUserPosts(widget.username);
-    });
+  Future<void> _refreshData() async {
+    final userProv = context.read<UserProvider>();
+    final postProv = context.read<PostProvider>();
+
+    await Future.wait([
+      userProv.fetchUserProfile(widget.username),
+      postProv.fetchUserPosts(widget.username),
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
+    final userProv = context.watch<UserProvider>();
+    final postProv = context.watch<PostProvider>();
+
     return Scaffold(
       backgroundColor: Colors.black,
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _userProfile,
-        builder: (context, profileSnap) {
-          if (profileSnap.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: Colors.blue),
-            );
-          } else if (profileSnap.hasError) {
-            return Center(
-              child: Text(
-                "Error: ${profileSnap.error}",
-                style: const TextStyle(color: Colors.red),
-              ),
-            );
-          } else if (!profileSnap.hasData) {
-            return const Center(
-              child: Text(
-                "Data tidak ditemukan",
-                style: TextStyle(color: Colors.white),
-              ),
-            );
-          }
+      body: _buildBody(userProv, postProv),
+    );
+  }
 
-          final user = profileSnap.data!;
-          return RefreshIndicator(
-            onRefresh: () async => _loadData(),
-            child: CustomScrollView(
-              slivers: [
-                SliverAppBar(
-                  backgroundColor: Colors.black,
-                  pinned: true,
-                  title: Column(
+  Widget _buildBody(UserProvider userProv, PostProvider postProv) {
+    if (userProv.isLoading && userProv.userProfile == null) {
+      return const Center(child: CircularProgressIndicator(color: Colors.blue));
+    }
+
+    if (userProv.errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "Error: ${userProv.errorMessage}",
+              style: const TextStyle(color: Colors.red),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _refreshData,
+              child: const Text("Coba Lagi"),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final user = userProv.userProfile;
+    if (user == null)
+      return const Center(
+        child: Text(
+          "User tidak ditemukan",
+          style: TextStyle(color: Colors.white),
+        ),
+      );
+
+    return RefreshIndicator(
+      color: Colors.blue,
+      onRefresh: _refreshData,
+      child: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            backgroundColor: Colors.black,
+            pinned: true,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user['fullname'] ?? "Profile",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  '${postProv.userPosts.length} Posts',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      height: 140,
+                      width: double.infinity,
+                      color: Colors.grey[900],
+                      child:
+                          (user['coverImg'] != null && user['coverImg'] != "")
+                          ? Image.network(user['coverImg'], fit: BoxFit.cover)
+                          : null,
+                    ),
+                    Positioned(
+                      bottom: -40,
+                      left: 16,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.black,
+                          shape: BoxShape.circle,
+                        ),
+                        child: CircleAvatar(
+                          radius: 40,
+                          backgroundImage: NetworkImage(
+                            user['profileImg'] ?? "",
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 50),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         user['fullname'],
                         style: const TextStyle(
-                          fontSize: 18,
+                          color: Colors.white,
+                          fontSize: 22,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const Text(
-                        'Posts',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      Text(
+                        '@${user['username']}',
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 16,
+                        ),
                       ),
-                    ],
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
+                      const SizedBox(height: 12),
+                      Text(
+                        user['bio'] ?? "No bio yet",
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
                         children: [
-                          Container(
-                            height: 140,
-                            width: double.infinity,
-                            color: Colors.grey[900],
-                            child: user['coverImg'] != ""
-                                ? Image.network(
-                                    user['coverImg'],
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
+                          const Icon(
+                            Icons.calendar_month,
+                            size: 16,
+                            color: Colors.grey,
                           ),
-                          Positioned(
-                            bottom: -40,
-                            left: 16,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.black,
-                                shape: BoxShape.circle,
-                              ),
-                              child: CircleAvatar(
-                                radius: 40,
-                                backgroundImage: NetworkImage(
-                                  user['profileImg'] ?? "",
-                                ),
-                              ),
-                            ),
+                          const SizedBox(width: 4),
+                          Text(
+                            "Joined ${user['createdAt']?.substring(0, 10) ?? ""}",
+                            style: const TextStyle(color: Colors.grey),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 50),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              user['fullname'],
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              '@${user['username']}',
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              user['bio'] ?? "No bio yet",
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.calendar_month,
-                                  size: 16,
-                                  color: Colors.grey,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  user['createdAt']?.substring(0, 10) ?? "",
-                                  style: const TextStyle(color: Colors.grey),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Text(
-                                  "${(user['following'] as List).length} ",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const Text(
-                                  "Following",
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  "${(user['followers'] as List).length} ",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const Text(
-                                  "Followers",
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          _buildFollowCount(
+                            user['following']?.length ?? 0,
+                            "Following",
+                          ),
+                          const SizedBox(width: 12),
+                          _buildFollowCount(
+                            user['followers']?.length ?? 0,
+                            "Followers",
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      const Divider(color: Colors.grey, thickness: 0.2),
                     ],
                   ),
                 ),
-                FutureBuilder<List<Post>>(
-                  future: _userPosts,
-                  builder: (context, postSnap) {
-                    if (postSnap.connectionState == ConnectionState.waiting) {
-                      return const SliverToBoxAdapter(
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    } else if (postSnap.hasError) {
-                      return SliverToBoxAdapter(
-                        child: Center(
-                          child: Text(
-                            "Error posts: ${postSnap.error}",
-                            style: const TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      );
-                    } else if (!postSnap.hasData || postSnap.data!.isEmpty) {
-                      return const SliverToBoxAdapter(
-                        child: Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(20),
-                            child: Text(
-                              "Belum ada post",
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-
-                    return SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => PostCard(
-                          post: postSnap.data![index],
-                          currentUserId: user['_id'],
-                          onDeleteSuccess: _loadData,
-                        ),
-                        childCount: postSnap.data!.length,
-                      ),
-                    );
-                  },
-                ),
+                const SizedBox(height: 16),
+                const Divider(color: Colors.grey, thickness: 0.2),
               ],
             ),
-          );
-        },
+          ),
+
+          _buildPostList(postProv, user['_id']),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFollowCount(int count, String label) {
+    return Row(
+      children: [
+        Text(
+          "$count ",
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(label, style: const TextStyle(color: Colors.grey)),
+      ],
+    );
+  }
+
+  Widget _buildPostList(PostProvider postProv, String userId) {
+    if (postProv.isLoading && postProv.userPosts.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(50),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (postProv.userPosts.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(40),
+            child: Text(
+              "Belum ada postingan",
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) => PostCard(
+          post: postProv.userPosts[index],
+          currentUserId: userId,
+          onDeleteSuccess: _refreshData,
+        ),
+        childCount: postProv.userPosts.length,
       ),
     );
   }

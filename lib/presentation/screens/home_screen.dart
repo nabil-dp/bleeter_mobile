@@ -3,7 +3,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../data/models/post_model.dart';
 import '../../data/services/post_service.dart';
+import '../../data/services/user_service.dart';
 import '../widgets/post_card.dart';
+import '../widgets/custom_drawer.dart';
 import 'create_post_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -15,22 +17,32 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final PostService _postService = PostService();
+  final UserService _userService = UserService();
   final _storage = const FlutterSecureStorage();
+
   late Future<List<Post>> _futurePosts;
+  Future<Map<String, dynamic>>? _futureCurrentUser;
   String _currentUserId = "";
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
     _refreshPosts();
+    _futureCurrentUser = _userService.getCurrentUser().then((user) {
+      _currentUserId = user['_id'];
+      return user;
+    });
   }
 
-  Future<void> _loadUserData() async {
+  void _initData() async {
     String? id = await _storage.read(key: 'userId');
-    setState(() {
-      _currentUserId = id ?? "";
-    });
+    if (id != null) {
+      setState(() {
+        _currentUserId = id;
+        _futureCurrentUser = _userService.getUserProfile(id);
+        _futurePosts = _postService.getAllPosts();
+      });
+    }
   }
 
   void _refreshPosts() {
@@ -43,19 +55,62 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      drawer: FutureBuilder<Map<String, dynamic>>(
+        future: _futureCurrentUser,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Drawer(
+              backgroundColor: Colors.black,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          } else if (snapshot.hasError) {
+            return Drawer(
+              backgroundColor: Colors.black,
+              child: Center(
+                child: Text(
+                  "Error: ${snapshot.error}",
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            );
+          }
+
+          final user = snapshot.data!;
+          return CustomDrawer(
+            userId: user['_id'],
+            fullname: user['fullName'] ?? "User",
+            username: user['username'] ?? "username",
+            profileImg: user['profileImg'] ?? "",
+            followersCount: (user['followers'] as List?)?.length ?? 0,
+            followingCount: (user['following'] as List?)?.length ?? 0,
+          );
+        },
+      ),
       appBar: AppBar(
         backgroundColor: Colors.black,
         elevation: 0,
+        leading: Builder(
+          builder: (context) => GestureDetector(
+            onTap: () => Scaffold.of(context).openDrawer(),
+            child: Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: FutureBuilder<Map<String, dynamic>>(
+                future: _futureCurrentUser,
+                builder: (context, snapshot) => CircleAvatar(
+                  backgroundImage: NetworkImage(
+                    snapshot.data?['profileImg'] ?? "",
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
         title: SvgPicture.asset(
           'assets/logo_svg.svg',
-          height: 30,
+          height: 25,
           colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
         ),
         centerTitle: true,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(0.5),
-          child: Container(color: Colors.grey[900], height: 0.5),
-        ),
       ),
       body: FutureBuilder<List<Post>>(
         future: _futurePosts,

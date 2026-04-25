@@ -83,4 +83,19 @@ class PostService {
     );
     return response.statusCode == 200;
   }
+
+  Future<List<Post>> getUserPosts(String username) async {
+    final token = await _getToken();
+    final response = await http.get(
+      Uri.parse('$baseUrl/user/$username'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> body = jsonDecode(response.body);
+      return body.map((dynamic item) => Post.fromJson(item)).toList();
+    } else {
+      throw Exception('Gagal memuat postingan user');
+    }
+  }
 }

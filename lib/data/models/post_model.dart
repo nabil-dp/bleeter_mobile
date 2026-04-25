@@ -1,5 +1,6 @@
 class Post {
   final String id;
+  final String userId;
   final String text;
   final String? img;
   final String username;
@@ -10,6 +11,7 @@ class Post {
 
   Post({
     required this.id,
+    required this.userId,
     required this.text,
     this.img,
     required this.username,
@@ -24,6 +26,7 @@ class Post {
 
     return Post(
       id: json['_id'] ?? '',
+      userId: user['_id'] ?? '',
       text: json['text'] ?? '',
       img: json['img'],
       username: user['username'] ?? 'Unknown',

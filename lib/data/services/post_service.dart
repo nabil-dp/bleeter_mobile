@@ -74,4 +74,13 @@ class PostService {
     );
     return response.statusCode == 200;
   }
+
+  Future<bool> deletePost(String postId) async {
+    final token = await _getToken();
+    final response = await http.delete(
+      Uri.parse('$baseUrl/$postId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    return response.statusCode == 200;
+  }
 }

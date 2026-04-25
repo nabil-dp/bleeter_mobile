@@ -87,6 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 return PostCard(
                   post: posts[index],
                   currentUserId: _currentUserId,
+                  onDeleteSuccess: _refreshPosts,
                 );
               },
             ),

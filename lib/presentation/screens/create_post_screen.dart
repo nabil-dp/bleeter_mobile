@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../data/services/post_service.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -12,6 +14,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final _textController = TextEditingController();
   final _postService = PostService();
   bool _isLoading = false;
+  File? _selectedImage;
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+      });
+    }
+  }
 
   void _submitPost() async {
     if (_textController.text.trim().isEmpty) return;
@@ -22,10 +35,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
     if (success) {
       if (!mounted) return;
-      Navigator.pop(
-        context,
-        true,
-      ); // Kembali ke Home dan kirim sinyal 'true' untuk refresh
+      Navigator.pop(context, true);
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -100,6 +110,33 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   border: InputBorder.none,
                 ),
               ),
+            ),
+            if (_selectedImage != null)
+              Stack(
+                children: [
+                  Image.file(
+                    _selectedImage!,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                  Positioned(
+                    right: 0,
+                    child: IconButton(
+                      icon: const Icon(Icons.cancel, color: Colors.red),
+                      onPressed: () => setState(() => _selectedImage = null),
+                    ),
+                  ),
+                ],
+              ),
+            const Divider(color: Colors.grey),
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.image, color: Colors.blue),
+                  onPressed: _pickImage,
+                ),
+              ],
             ),
           ],
         ),

@@ -16,6 +16,7 @@ class AuthService {
       final data = jsonDecode(response.body);
       final token = data['token'];
       await storage.write(key: 'token', value: data['token']);
+      await storage.write(key: 'userId', value: data['_id']);
 
       if (token != null) {
         await storage.write(key: 'token', value: token);

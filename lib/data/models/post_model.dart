@@ -1,10 +1,12 @@
 class Post {
   final String id;
   final String text;
-  final String? img; // Bisa null jika tweet tidak ada gambar
+  final String? img;
   final String username;
   final String fullname;
   final String profileImg;
+  final List<String> likes;
+  final List<dynamic> comments;
 
   Post({
     required this.id,
@@ -13,10 +15,11 @@ class Post {
     required this.username,
     required this.fullname,
     required this.profileImg,
+    required this.likes,
+    required this.comments,
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
-    // Backend Burak melakukan populate pada field 'user'
     final user = json['user'] ?? {};
 
     return Post(
@@ -26,6 +29,8 @@ class Post {
       username: user['username'] ?? 'Unknown',
       fullname: user['fullname'] ?? 'User',
       profileImg: user['profileImg'] ?? '',
+      likes: List<String>.from(json['likes'] ?? []),
+      comments: json['comments'] ?? [],
     );
   }
 }

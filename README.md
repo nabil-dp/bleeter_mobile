@@ -1,8 +1,11 @@
 # bleeter_mobile
 
-A new Flutter project.
+Implementasi mobile dari aplikasi bleeter-biz untuk mobile dengan Flutter.
 
 ## Getting Started
+
+Membutuhkan bleeter-biz biasa untuk running: https://github.com/nabil-dp/bleeter-biz
+Aplikasi ini menggunakan API yang dibuat pada bleeter-biz
 
 This project is a starting point for a Flutter application.
 
